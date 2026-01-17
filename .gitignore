@@ -1,0 +1,55 @@
+# Environment variables (SECURITY)
+.env
+
+# Python & System
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.DS_Store
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Logs & Debug
+*.log
+pipeline_debug.log
+terminal_output.log
+
+# Data & Cache (Runtime files)
+*.csv
+*.json
+# !reservoir_pme.csv <- Commented out to ignore it
+# !checkpoint_metadata.json
+# !strategies_testees_cache.json
+# (On ignore les caches mais on peut vouloir garder certains fichiers de config s'ils existent)
+.crawl4ai_cache/
+checkpoints/
+
+# Temporary/Test Files & Debris
+test_*
+tests/
+debug_*.py
+*_debug.py
+*.ipynb
+*.html
+portfolio_*
+crawl4ai*/
+*.zip
+*.yaml
+app.py
+*.bak
+*.md
+!README.md
+!task.md
+*.txt
+!requirements.txt
+*.svg
+
+# Legacy & Backup
+Mon_outil_de_travail.py
+Mon_outil_de_travail.py.bak
