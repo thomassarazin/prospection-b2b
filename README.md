@@ -1,43 +1,78 @@
-# 🚀 Smart Prospecting Pipeline & Expert Audit Engine
+# 🎯 Advanced B2B Audit & Prospecting Platform
 
-Un moteur de prospection B2B modulaire conçu pour passer de la prospection de masse à une approche haute-fidélité.
+> **L'ultime plateforme multi-agents** pour la prospection B2B de précision et l'audit technique automatisé (Sécurité, UX, Vision).
 
-## ✨ Fonctionnalités clés
-
-- 🔍 **Multi-Source Discovery** : Intégration avancée avec Pappers API pour un ciblage précis par code NAF et localisation.
-- 📧 **Smart Enrichment** : Batch processing via Dropcontact pour l'extraction des contacts directs des décideurs.
-- 🌐 **Deep Web Scraping** : Analyse haute performance via Crawl4AI (Cleaned HTML & Screenshots).
-- 🤖 **AI-Driven Personalization** : Génération d'icebreakers et d'automatisations sur-mesure via DeepInfra (Qwen/Llama).
-- 🛡️ **Expert Audit (Beta)** : Diagnostic automatique des failles UI et Sécurité pour des arguments de vente à forte valeur ajoutée.
-
-## 🛠️ Stack Technique
-
-- **Langage** : Python 3.12+
-- **Scraping** : Crawl4AI
-- **IA** : DeepInfra (Llama 3 / Qwen)
-- **APIs** : Pappers, Dropcontact, Million Verifier
-
-## 🚀 Installation & Usage
-
-1. **Cloner le projet**
-   ```bash
-   git clone https://github.com/toot7b/prospection-v1.git
-   cd prospection-v1
-   ```
-
-2. **Installer les dépendances**
-   ```bash
-   pip install -r requirements.txt
-   playwright install
-   ```
-
-3. **Configuration**
-   Copiez le fichier `.env.example` en `.env` et remplissez vos clés API.
-
-4. **Lancer la prospection**
-   ```bash
-   python main.py --limit 10 --debug
-   ```
+[![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![DeepInfra](https://img.shields.io/badge/AI-DeepInfra-purple.svg)](https://deepinfra.com/)
+[![Crawl4AI](https://img.shields.io/badge/Scraping-Crawl4AI--v2-green.svg)](https://crawl4ai.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
-*Projet développé pour optimiser la qualité et la pertinence de la prospection B2B.*
+
+## 🔥 Le Concept : L'Audit comme cheval de Troie
+
+Ce pipeline ne se contente pas de trouver des entreprises. Il effectue un **audit technique complet** pour transformer chaque prise de contact en une démonstration d'expertise. Plus besoin de "icebreakers" génériques : vous contactez le prospect avec des failles réelles et des preuves visuelles.
+
+### 1. 🏢 Pipeline de Prospection PME
+- 📊 **Segmentation Précise** : Ciblage par code NAF et localisation via Pappers.
+- 📧 **Enrichissement Cascade** : Détection d'emails pro (Dropcontact) et découverte de sites web.
+- 📑 **Rapports Humains** : Conversion automatique des analyses IA complexes en blocs de texte lisibles pour vos commerciaux (CSV direct).
+
+### 2. 🔍 Audit IA Multi-Experts
+- 🛡️ **Expert Sécurité** : Scan approfondi du code HTML et des scripts pour détecter les fuites de versions, les clés API exposées et les failles de headers.
+- 🎨 **Expert UX/Code** : Analyse critique de l'accessibilité, de l'hygiène du code et du responsive design.
+- 👁️ **Expert Vision (Full-Page)** : Analyse esthétique basée sur une capture complète de la page (du header au footer), évaluant la hiérarchie visuelle et l'impact des CTAs.
+- 🧠 **La Synthèse (Mentor)** : Rassemble les points critiques, définit un score de priorité client et génère un **script d'appel téléphonique** ultra-personnalisé.
+
+---
+
+## 🚀 Technologie de Pointe
+
+### 🕵️‍♂️ Smart Discovery & Multi-Pages
+Le système ne s'arrête pas à la page d'accueil. Il explore intelligemment les pages `/contact` ou `/login` pour agréger un maximum de scripts JavaScript, augmentant ainsi drastiquement la portée de l'audit de sécurité.
+
+### 🔑 KeyValidator Hybride
+Un moteur de détection unique qui combine :
+- **Scan de scripts externes** (JS Hunter).
+- **Scan d'attributs HTML** et de variables inline.
+- **Validation Active** : Chaque clé trouvée est testée en temps réel sur les APIs de 45+ services (Stripe, AWS, Google Maps...) pour confirmer si elle est "exploitable" ou non.
+
+### 📸 Vision Vision 1920px
+Capture HD via moteur Chromium convertie en JPEG optimisé. L'IA Vision (Qwen-VL) dispose d'une vue d'acteur de l'ensemble du site web, permettant un diagnostic visuel sans angle mort.
+
+---
+
+## 🛠️ Installation
+
+### Prérequis
+- **Poppler** (indispensable pour la conversion des captures full-page) :
+  ```bash
+  brew install poppler  # macOS
+  ```
+
+### Setup
+```bash
+git clone https://github.com/toot7b/Projet-Freelance.git
+cd Projet-Freelance
+pip install -r requirements.txt
+playwright install
+cp .env.example .env # Remplir vos clés API
+```
+
+---
+
+## 💻 Usage
+
+### � Lancer la prospection massive
+```bash
+python main.py --limit 40 --mode code_naf
+```
+
+### 🔍 Lancer un audit unitaire (Démo)
+```bash
+python tests/test_full_audit.py www.example.com
+```
+
+---
+
+**Propulsion commerciale par l'intelligence technique. 🚀**

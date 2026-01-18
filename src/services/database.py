@@ -7,15 +7,25 @@ logger = logging.getLogger(__name__)
 
 class DatabaseService:
     def __init__(self, uri: str):
-        self.client = MongoClient(uri)
-        self.db = self.client.get_database("prospection_v1")
-        self.prospects = self.db.get_collection("prospects")
-        self.prompts = self.db.get_collection("prompts")
-        self.audits = self.db.get_collection("audits")
-        
         # Création d'un index unique sur le SIREN pour éviter les doublons
-        self.prospects.create_index("siren", unique=True)
-        logger.info("✅ Connexion MongoDB établie et indexation terminée.")
+        try:
+            # On tente une opération légère pour vérifier la connexion (timeout court)
+            self.client = MongoClient(uri, serverSelectionTimeoutMS=2000)
+            self.db = self.client.get_database("prospection_v1")
+            self.prospects = self.db.get_collection("prospects")
+            self.prompts = self.db.get_collection("prompts")
+            self.audits = self.db.get_collection("audits")
+            
+            # Force check
+            self.client.server_info()
+            
+            self.prospects.create_index("siren", unique=True)
+            self.connected = True
+            logger.info("✅ Connexion MongoDB établie.")
+        except Exception as e:
+            self.connected = False
+            self.db = None
+            logger.warning(f"⚠️ Impossible de se connecter à MongoDB ({e}). Mode SANS base de données activé.")
 
     def get_prospect(self, siren: str) -> Optional[Dict[str, Any]]:
         return self.prospects.find_one({"siren": siren})

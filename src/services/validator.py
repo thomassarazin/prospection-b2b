@@ -436,6 +436,83 @@ class KeyValidator:
         except Exception as e:
             return {"valid": False, "service": service_config["name"], "error": str(e)}
     
+    async def scan_html(self, html_content: str) -> List[Dict[str, Any]]:
+        """
+        Scanne le HTML brut pour détecter des clés API dans:
+        1. Les attributs HTML (data-sitekey, data-key, etc.)
+        2. Les URLs de scripts (paramètres ?key=...)
+        3. Le code JS inline (const apiKey = "...", etc.)
+        """
+        found_keys = []
+        logger.info(f"🔍 KeyValidator: Scan HTML ({len(html_content)} chars)...")
+        
+        # 1. Scan des attributs HTML
+        html_attr_patterns = [
+            r'data-sitekey=["\']([^"\'>]+)["\']',  # Recaptcha
+            r'data-key=["\']([^"\'>]+)["\']',
+            r'data-api-key=["\']([^"\'>]+)["\']',
+            r'apikey=["\']([^"\'>]+)["\']',
+        ]
+        
+        for pattern in html_attr_patterns:
+            matches = re.findall(pattern, html_content, re.IGNORECASE)
+            for match in matches:
+                found_keys.append({"source": "HTML_ATTR", "key": match})
+        
+        # 2. Scan des URLs de scripts (query params)
+        script_url_patterns = [
+            r'src=["\']([^"\'>]*[?&]key=([^&"\'>]+))',  # ?key=...
+            r'src=["\']([^"\'>]*[?&]apikey=([^&"\'>]+))',  # ?apikey=...
+        ]
+        
+        for pattern in script_url_patterns:
+            matches = re.findall(pattern, html_content, re.IGNORECASE)
+            for match in matches:
+                # match[1] contient la valeur du paramètre
+                found_keys.append({"source": "SCRIPT_URL", "key": match[1]})
+        
+        # 3. Scan du code JS inline
+        js_inline_patterns = [
+            r'["\']?apiKey["\']?\s*[:=]\s*["\']([^"\'>]{10,})["\']',
+            r'["\']?api_key["\']?\s*[:=]\s*["\']([^"\'>]{10,})["\']',
+            r'["\']?stripeKey["\']?\s*[:=]\s*["\']([^"\'>]{10,})["\']',
+            r'["\']?STRIPE_KEY["\']?\s*[:=]\s*["\']([^"\'>]{10,})["\']',
+        ]
+        
+        for pattern in js_inline_patterns:
+            matches = re.findall(pattern, html_content, re.IGNORECASE)
+            for match in matches:
+                found_keys.append({"source": "JS_INLINE", "key": match})
+        
+        # Validation des clés trouvées
+        validated_results = []
+        logger.info(f"🔑 {len(found_keys)} clés potentielles trouvées")
+        
+        for item in found_keys:
+            key = item["key"]
+            source = item["source"]
+            
+            # Détection automatique du service
+            matched_service = None
+            for service_id, config in KEY_VALIDATORS.items():
+                pattern = config["pattern"]
+                if re.fullmatch(pattern, key):
+                    matched_service = config
+                    logger.info(f"✅ Service détecté ({source}): {config['name']}")
+                    break
+            
+            if matched_service:
+                result = await self.validate_key(key, matched_service)
+                if result:
+                    result["source"] = source
+                    result["key_preview"] = f"{key[:10]}...{key[-4:]}"
+                    validated_results.append(result)
+                    
+                    if result.get("valid"):
+                        logger.warning(f"⚠️ CLÉ VALIDE DÉTECTÉE ({source}): {matched_service['name']}")
+        
+        return validated_results
+    
     async def check_alerts(self, alerts: List[str]) -> List[Dict[str, Any]]:
         """
         Analyse une liste d'alertes JS Hunter et valide les clés trouvées.

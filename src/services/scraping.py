@@ -295,3 +295,175 @@ def scrape_website_with_crawl4ai(
         if log_fn:
             log_fn(f"💥 [Crawl4AI] Exception asyncio pour {url}: {e}", "ERROR")
         return None
+
+
+def scrape_for_audit(url: str) -> dict:
+    """
+    Scraping Avancé V2:
+    1. Home Page: Full Page Screenshot (Vision) + JS Scan.
+    2. Smart Navigation: Détection et visite de la page Contact/Login (Security).
+    3. Fusion des alertes de sécurité.
+    """
+    try:
+        from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig
+    except ImportError:
+        return {"error": "Crawl4AI missing"}
+
+    import re
+    from bs4 import BeautifulSoup
+    import math
+
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "https://" + url
+
+    async def _smart_discovery(crawler, base_url, html_home):
+        """Trouve une page intéressante (Contact/Login) et la scrape."""
+        soup = BeautifulSoup(html_home, 'html.parser')
+        
+        # Mots-clés prioritaires
+        targets = [
+            ("contact", 10), ("nous-contacter", 10), ("support", 8),
+            ("login", 9), ("connexion", 9), ("signin", 9),
+            ("signup", 7), ("inscription", 7), ("mon-compte", 6)
+        ]
+        
+        best_link = None
+        best_score = 0
+        
+        for a in soup.find_all('a', href=True):
+            href = a['href'].lower()
+            text = a.get_text().lower()
+            score = 0
+            
+            for keyword, weight in targets:
+                if keyword in href or keyword in text:
+                    score += weight
+                    # Bonus si c'est un lien court (plus chanceux d'être la bonne page)
+                    if len(href) < 50:
+                        score += 2
+                    break
+            
+            if score > best_score:
+                best_score = score
+                # Gestion liens relatifs
+                if href.startswith("/"):
+                    # Retirer le slash final de base_url si présent
+                    clean_base = base_url.rstrip("/")
+                    best_link = f"{clean_base}{href}"
+                elif href.startswith("http"):
+                    best_link = href
+        
+        if best_link:
+            print(f"🕵️ Smart Discovery: Page secondaire trouvée -> {best_link}")
+            # Run rapide sans screenshot pour la page secondaire (juste le code)
+            run_config_secondary = CrawlerRunConfig(
+               wait_until="networkidle",
+               screenshot=False,
+               page_timeout=15000
+            )
+            result = await crawler.arun(url=best_link, config=run_config_secondary)
+            if result.success:
+                return result.html
+            
+        return ""
+
+    async def _run():
+        browser_config = BrowserConfig(
+            headless=True,
+            viewport_width=1920,  # Full HD width
+            viewport_height=1080,
+            text_mode=False,
+            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        
+        run_config = CrawlerRunConfig(
+            wait_until="networkidle",
+            screenshot=True,
+            pdf=True,  # PDF always captures full page
+            scan_full_page=True,
+            scroll_delay=0.5,
+            screenshot_wait_for=5.0,
+            screenshot_height_threshold=50000,
+            page_timeout=45000
+        )
+
+        async with AsyncWebCrawler(config=browser_config) as crawler:
+            # 1. Scrape Home
+            result_home = await crawler.arun(url=url, config=run_config)
+            
+            if not result_home.success:
+                return {"error": result_home.error_message or "Unknown crawl error"}
+
+            html_home = result_home.html or ""
+            
+            # Get screenshot - prefer PDF conversion for full page
+            screenshot_b64 = ""
+            pdf_data = result_home.pdf  # bytes
+            
+            if pdf_data:
+                # Convert PDF to full-page image
+                try:
+                    from pdf2image import convert_from_bytes
+                    from io import BytesIO
+                    import base64
+                    
+                    # Convert all pages at high DPI (200) for good quality
+                    # The PDF should be viewport-width (1920px)
+                    images = convert_from_bytes(pdf_data, dpi=200)
+                    
+                    if images:
+                        # For very long pages, combine all PDF pages into one image
+                        if len(images) > 1:
+                            from PIL import Image
+                            total_height = sum(img.height for img in images)
+                            max_width = max(img.width for img in images)
+                            combined = Image.new('RGB', (max_width, total_height))
+                            y_offset = 0
+                            for img in images:
+                                combined.paste(img, (0, y_offset))
+                                y_offset += img.height
+                            final_image = combined
+                        else:
+                            final_image = images[0]
+                        
+                        # Convert to base64 JPEG (better compression for Vision AI)
+                        buffer = BytesIO()
+                        final_image.save(buffer, format='JPEG', quality=80)
+                        screenshot_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                        print(f"📸 Full-page image from PDF (JPEG): {len(screenshot_b64)} chars")
+                except Exception as e:
+                    print(f"⚠️ PDF conversion failed: {e}, falling back to viewport screenshot")
+                    screenshot_b64 = result_home.screenshot or ""
+            else:
+                screenshot_b64 = result_home.screenshot or ""
+            
+            # 2. Smart Navigation (Sécurité)
+            html_secondary = await _smart_discovery(crawler, url, html_home)
+            
+            # 3. Fusion JS (Home + Secondary)
+            combined_html = html_home + "\n" + html_secondary
+            
+            js_alerts = []
+            scripts = re.findall(r'src=["\'](.*?)["\']', combined_html)
+            
+            seen_scripts = set()
+            for s in scripts:
+                if ".js" in s and "http" in s:
+                    if s not in seen_scripts:
+                        js_alerts.append({"src": s, "type": "external_script"})
+                        seen_scripts.add(s)
+
+            return {
+                "home": {
+                    "html": html_home,
+                    "screenshot": screenshot_b64  # Now full-page from PDF!
+                },
+                "combined_html": combined_html,  # Home + Contact/Login for code analysis
+                "security_alerts": js_alerts,
+                "secondary_scraped": bool(html_secondary)
+            }
+
+    try:
+        return asyncio.run(_run())
+    except Exception as e:
+        return {"error": f"Scrape Audit Failed: {str(e)}"}

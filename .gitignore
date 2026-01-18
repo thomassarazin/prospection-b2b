@@ -32,8 +32,9 @@ checkpoints/
 
 # Temporary/Test Files & Debris
 test_*
-tests/
 debug_*.py
+debug_screenshot_*.jpg
+debug_*.jpg
 *_debug.py
 *.ipynb
 *.html
@@ -46,10 +47,20 @@ app.py
 *.md
 !README.md
 !task.md
+!implementation_plan.md
+!walkthrough.md
 *.txt
 !requirements.txt
 *.svg
+test_full_page.png
+test_full_page.pdf
+test_screenshot.png
+*.png
+*.pdf
+*.jpg
 
 # Legacy & Backup
+icebreaker_legacy.py
 Mon_outil_de_travail.py
 Mon_outil_de_travail.py.bak
+fix_csv.py

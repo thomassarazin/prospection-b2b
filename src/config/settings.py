@@ -24,6 +24,9 @@ DEFAULT_CRAWL4AI_BASE = os.path.join(os.getcwd(), ".crawl4ai_cache")
 os.makedirs(DEFAULT_CRAWL4AI_BASE, exist_ok=True)
 os.environ.setdefault("CRAWL4_AI_BASE_DIRECTORY", DEFAULT_CRAWL4AI_BASE)
 
+# Database
+MONGO_URI = os.getenv("MONGODB_URI", os.getenv("MONGO_URI", "mongodb://localhost:27017"))
+
 # =============================================================================
 # PROSPECTION CONFIGURATION (PME FOCUSED)
 # =============================================================================

@@ -33,9 +33,13 @@ class AuditService:
         Récupère le prompt depuis la DB ou fallback sur la config locale.
         """
         # 1. Essai DB (Prompts dynamiques)
-        db_prompt = self.db.prompts.find_one({"key": prompt_key})
-        if db_prompt:
-            return db_prompt["data"]
+        try:
+            if self.db and getattr(self.db, 'connected', False):
+                db_prompt = self.db.prompts.find_one({"key": prompt_key}, maxTimeMS=2000)
+                if db_prompt and "data" in db_prompt:
+                    return db_prompt["data"]
+        except Exception as e:
+            logger.warning(f"⚠️ Erreur lors de la récupération du prompt '{prompt_key}' en DB: {e}. Fallback local.")
         
         # 2. Fallback Code (Prompts par défaut)
         return AUDIT_PROMPTS.get(prompt_key, {"role": "System", "content": "Error: Prompt not found"})
@@ -190,9 +194,9 @@ class AuditService:
         Orchestre l'audit complet du prospect.
         """
         siren = prospect.get("siren")
-        url = prospect.get("site_web") # Assumons que l'URL est propre
+        url = prospect.get("site_web") or prospect.get("website") # Support both keys
         if not url:
-            return {"error": "No URL provided"}
+            return {"error": "No URL provided", "decision": "ERROR"}
 
         logger.info(f"🚀 Démarrage Audit Expert pour {prospect.get('nom_complet')} ({url})")
 
@@ -203,13 +207,22 @@ class AuditService:
             return {"error": f"Scraping failed: {err_msg}"}
 
         html_home = scrape_data["home"].get("html", "")
-        screenshot = scrape_data["home"].get("screenshot", "") # Base64
+        combined_html = scrape_data.get("combined_html", html_home)  # Home + Contact/Login
+        screenshot = scrape_data["home"].get("screenshot", "") # Base64 (now full-page!)
         js_alerts = scrape_data.get("security_alerts", [])
         
         # 1-bis. VALIDATION ACTIVE (KeyHacks)
         from src.services.validator import KeyValidator
         validator = KeyValidator()
+        
+        # Scan JS alerts (ancienne méthode)
         active_proofs = asyncio.run(validator.check_alerts(js_alerts))
+        
+        # Scan HTML brut des DEUX pages (nouvelle méthode - attributs, URLs, inline JS)
+        html_scan_results = asyncio.run(validator.scan_html(combined_html))
+        
+        # Fusion des résultats
+        active_proofs.extend(html_scan_results)
         
         # 2. RUN SÉQUENTIEL (Plus stable pour l'API)
         # Modèles
@@ -223,8 +236,8 @@ class AuditService:
         
         
         # Inputs
-        # Qwen3 encaisse bien, on remet le standard 50k.
-        html_diet = html_home[:50000] 
+        # Use combined HTML (Home + Contact/Login) for comprehensive analysis
+        html_diet = combined_html[:50000]  # Analyze both pages
         input_tech = p_tech["content"].format(
             html_content=html_diet, 
             js_alerts=json.dumps(js_alerts),
@@ -244,6 +257,15 @@ class AuditService:
         results["ui"] = self._call_llm(MODEL_CODE, p_ui["role"], input_ui, timeout=300, stream=True)
         logger.info(f"👁️ [3/3] Audit VISION en cours ({MODEL_VISION})...")
         if screenshot:
+             # DEBUG: Sauvegarder l'image pour vérification utilisateur
+             try:
+                 import base64
+                 with open(f"debug_screenshot_{siren}.jpg", "wb") as f:
+                     f.write(base64.b64decode(screenshot))
+                 logger.info(f"📸 Screenshot sauvegardé pour vérification: debug_screenshot_{siren}.jpg")
+             except Exception as e:
+                 logger.warning(f"⚠️ Echec sauvegarde screenshot debug: {e}")
+
              results["vision"] = self._call_llm(MODEL_VISION, p_vision["role"], input_vision, image_b64=screenshot, timeout=300, stream=False)
         else:
              logger.warning("⚠️ Pas de screenshot, Audit Vision annulé")
@@ -299,7 +321,15 @@ class AuditService:
         }
 
         # Sauvegarde MongoDB
-        self.db.audits.insert_one(final_audit)
+        try:
+            if self.db and getattr(self.db, 'connected', False):
+                self.db.audits.insert_one(final_audit)
+                logger.info(f"✅ Audit sauvegardé en DB pour {siren}.")
+            else:
+                logger.warning(f"⚠️ DB non connectée ou absente, audit non sauvegardé pour {siren}.")
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la sauvegarde MongoDB pour {siren}: {e}")
+
         logger.info(f"✅ Audit terminé pour {siren}. Coût: ${final_audit['total_cost_usd']}")
 
         return final_audit

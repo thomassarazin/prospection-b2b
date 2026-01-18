@@ -13,20 +13,17 @@ from src.config.settings import (
     PAPPERS_API_KEY, DROPCONTACT_API_KEY, MILLION_VERIFIER_API_KEY, DEEPINFRA_API_KEY,
     MODE_PROSPECTION, CAMPAGNE_CODES_NAF, TARGETS_CONFIG,
     RESERVOIR_PME_CSV, RESERVOIR_FILTRE_CACHE, STRATEGIES_CACHE_FILE,
-    PAGINATION_NAF_FILE, PAPPERS_MAX_PAGES, LIMIT_MEMORY_MB, PME_SEARCH_DEPARTMENTS
+    PAGINATION_NAF_FILE, PAPPERS_MAX_PAGES, LIMIT_MEMORY_MB, PME_SEARCH_DEPARTMENTS,
+    MONGO_URI  # Added
 )
 from src.core.checkpoint import CheckpointManager
 from src.services.pappers import collect_dirigeants_for_strategy
 from src.services.dropcontact import dropcontact_enrich_loop
 from src.services.search import find_website_from_email_domain, enrich_missing_websites
 from src.services.email_verifier import million_verifier_validate_batch
-from src.services.scraping import scrape_website_with_crawl4ai
-from src.services.deepinfra import (
-    extract_detailed_summary_with_deepinfra,
-    extract_abc_from_summary_with_deepinfra,
-    generate_automation_list_with_deepinfra,
-    try_metadata_fallback
-)
+from src.services.database import DatabaseService
+from src.services.audit import AuditService
+
 
 # Instance locale du checkpoint manager (sera initialisée via settings dans une vraie app, ici on peut la recréer)
 _checkpoint_manager = CheckpointManager()
@@ -214,19 +211,7 @@ def sauvegarder_pagination_naf(pagination: Dict[str, int]):
     with open("pagination_naf.json", 'w') as f:
         json.dump(pagination, f, indent=2)
 
-def charger_cache_icebreaker() -> Dict[str, Dict]:
-    """Charge le cache des sites déjà scrapés"""
-    if os.path.exists("cache_icebreaker.json"):
-        try:
-            with open("cache_icebreaker.json", 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
 
-def sauvegarder_cache_icebreaker(cache: Dict[str, Dict]) -> None:
-    with open("cache_icebreaker.json", 'w', encoding='utf-8') as f:
-        json.dump(cache, f, indent=2, ensure_ascii=False)
 
 def equilibrer_reservoir_par_strategie(
     reservoir_dirigeants: List[Dict[str, Any]],
@@ -294,78 +279,7 @@ def filtrer_prospects(all_dirigeants: List[Dict[str, Any]]) -> List[Dict[str, An
 # Logique d'Enrichissement (Web & Icebreaker)
 # ---------------------------------------------------------------------------
 
-def enrich_prospect_with_icebreaker(
-    prospect: Dict[str, Any],
-    deepinfra_api_key: str,
-    log_fn: Optional[Any] = None,
-    cache: Optional[Dict[str, Dict]] = None
-) -> Dict[str, Any]:
-    """Scrape le site et génère les variables A/B/C/D + Automatisations"""
-    website = prospect.get("website", "").strip()
-    
-    # 1. Check cache
-    if cache and website and website in cache:
-        cached_data = cache[website]
-        prospect["icebreaker_a"] = cached_data.get("A", "")
-        prospect["icebreaker_b"] = cached_data.get("B", "")
-        prospect["icebreaker_c"] = cached_data.get("C", "")
-        prospect["icebreaker_d"] = cached_data.get("D", "")
-        prospect["icebreaker_origin"] = "cache"
-        if log_fn: log_fn(f"📦 [Cache] Icebreakers récupérés pour {website}", "DEBUG")
-        return prospect
 
-    # 2. Scraping
-    if not website:
-        # Fallback metadata NAF
-        try_metadata_fallback(prospect, deepinfra_api_key, log_fn)
-        return prospect
-
-    # S'assurer que l'URL a un protocole
-    if not website.startswith(("http://", "https://")):
-        website = f"https://{website}"
-
-    try:
-        content = scrape_website_with_crawl4ai(
-            website, 
-            log_fn=log_fn, 
-            allow_noisy_content=False
-        )
-        
-        if not content:
-            try_metadata_fallback(prospect, deepinfra_api_key, log_fn)
-            return prospect
-
-        # 3. Résumé IA
-        summary = extract_detailed_summary_with_deepinfra(content, deepinfra_api_key, log_fn)
-        if not summary:
-            try_metadata_fallback(prospect, deepinfra_api_key, log_fn)
-            return prospect
-            
-        prospect["icebreaker_d"] = summary
-
-        # 4. Extraction A/B/C
-        abc_vars = extract_abc_from_summary_with_deepinfra(summary, deepinfra_api_key, log_fn)
-        if abc_vars:
-            prospect["icebreaker_a"] = abc_vars.get("activite_principale", "")
-            prospect["icebreaker_b"] = abc_vars.get("operations_concretes", "")
-            prospect["icebreaker_c"] = abc_vars.get("valeur_humaine", "")
-            prospect["icebreaker_origin"] = "deepinfra_custom"
-        else:
-            try_metadata_fallback(prospect, deepinfra_api_key, log_fn)
-
-        # 5. Automatisations
-        code_naf = prospect.get("code_naf", "")
-        auto_list = generate_automation_list_with_deepinfra(summary, code_naf, deepinfra_api_key, log_fn)
-        if auto_list:
-            prospect["automation_list"] = auto_list
-            prospect["automation_origin"] = "deepinfra_custom"
-        
-        return prospect
-
-    except Exception as e:
-        if log_fn: log_fn(f"💥 Erreur enrichissement icebreaker {website}: {e}", "ERROR")
-        try_metadata_fallback(prospect, deepinfra_api_key, log_fn)
-        return prospect
 
 # ---------------------------------------------------------------------------
 # Core Pipeline Logic
@@ -670,7 +584,7 @@ def collect_pme_prospects(target_count: Optional[int] = None) -> List[UnifiedPro
                 logger.info(f"✅ {len(prospects_qualifies_finaux)} prospects restaurés dans la file d'attente.")
             
             # Gestion des phases avancées (skip steps)
-            if phase == "post_icebreaker_enrichment":
+            if phase == "post_enrichment_no_icebreaker":
                 logger.info("✅ Campagne déjà terminée à 100%. Retour direct.")
                 # Conversion et retour
                 unified_prospects = []
@@ -703,6 +617,12 @@ def collect_pme_prospects(target_count: Optional[int] = None) -> List[UnifiedPro
     reservoir_pme_persistant = charger_reservoir_pme_csv()
     siren_deja_testes = {str(p.get("siren", "")) for p in reservoir_pme_persistant if p.get("siren")}
     
+    # Init Services (Audit + DB)
+    db_service = DatabaseService(MONGO_URI)
+    audit_service = AuditService(db_service)
+
+    # 1. Chargement & Restauration
+    # -----------------------------------------------------------------------
     # Chargement cache filtré
     code_naf_cache = ",".join(CAMPAGNE_CODES_NAF["codes"]) if MODE_PROSPECTION == "code_naf" else None
     reservoir_dirigeants = charger_reservoir_filtre_cache(code_naf=code_naf_cache)
@@ -833,28 +753,139 @@ def collect_pme_prospects(target_count: Optional[int] = None) -> List[UnifiedPro
     )
 
         
-    cache_ib = charger_cache_icebreaker()
+    # Phase Audit Expert (Remplaçant les Icebreakers)
     final_enriched = []
     
+    # --- HELPER FORMATAGE CSV ---
+    def format_report_to_text(data: dict, type_report: str) -> str:
+        """Convertit le dictionnaire JSON en bloc de texte lisible pour Excel/CSV."""
+        if not data or not isinstance(data, dict):
+            return ""
+            
+        try:
+            txt = []
+            
+            if type_report == "tech":
+                score = data.get("safety_score", "?")
+                txt.append(f"🛡️ SAFETY SCORE: {score}/100")
+                if data.get("sales_argument"):
+                    txt.append(f"\n🗣️ ACCROCHE: {data['sales_argument']}")
+                vulns = data.get("vulnerabilities", [])
+                if vulns:
+                    txt.append("\n⚠️ VULNÉRABILITÉS:")
+                    for v in vulns:
+                        txt.append(f"  - {v}")
+                brief = data.get("technical_brief", "")
+                if brief:
+                    txt.append(f"\n📝 BRIEF TECHNIQUE:\n{brief}")
+
+            elif type_report == "ui":
+                score = data.get("ux_code_score", "?")
+                txt.append(f"🎨 UX SCORE: {score}/100")
+                mobile = "OUI" if data.get("mobile_ready") else "NON"
+                txt.append(f"📱 Mobile Ready: {mobile}")
+                if data.get("sales_argument"):
+                    txt.append(f"\n🗣️ ACCROCHE: {data['sales_argument']}")
+                flaws = data.get("design_flaws", [])
+                if flaws:
+                    txt.append("\n❌ DÉFAUTS UX:")
+                    for f in flaws:
+                        txt.append(f"  - {f}")
+                brief = data.get("technical_brief", "")
+                if brief:
+                    txt.append(f"\n📝 BRIEF UX:\n{brief}")
+
+            elif type_report == "vision":
+                scores = []
+                if "attention_score" in data: scores.append(f"Attention {data['attention_score']}/10")
+                if "typography_score" in data: scores.append(f"Typo {data['typography_score']}/10")
+                if "aesthetic_score" in data: scores.append(f"Esthétisme {data['aesthetic_score']}/10")
+                txt.append(f"👁️ VISION SCORES: {', '.join(scores)}")
+                
+                roast = data.get("one_liner_roast", "")
+                if roast:
+                    txt.append(f"\n🔥 ROAST: {roast}")
+                
+                fixes = data.get("top_3_critical_fixes", [])
+                if fixes:
+                    txt.append("\n🛠️ FIXES PRIORITAIRES:")
+                    for f in fixes:
+                        txt.append(f"  - {f}")
+                brief = data.get("technical_brief", "")
+                if brief:
+                    txt.append(f"\n📝 BRIEF DESIGN:\n{brief}")
+
+            elif type_report == "summary":
+                # Synthèse globale
+                global_score = data.get("global_score", "?")
+                decision = data.get("decision", "PENDING")
+                txt.append(f"🏁 DÉCISION: {decision} (Score {global_score}/100)")
+                
+                phrase = data.get("resume_en_une_phrase", "")
+                if phrase:
+                    txt.append(f"\n📢 EN UNE PHRASE: {phrase}")
+                
+                txt.append("\n🚨 PROBLÈMES CLÉS:")
+                for k in ["probleme_1", "probleme_2", "probleme_3"]:
+                    pb = data.get(k, {})
+                    if pb and isinstance(pb, dict) and pb.get("titre"):
+                        txt.append(f"\n[{pb.get('titre')}]")
+                        txt.append(f"   📞 Script: \"{pb.get('script_tel', '')}\"")
+                        txt.append(f"   💡 Culture: {pb.get('minute_culture', '')}")
+
+            return "\n".join(txt)
+        except Exception:
+            return str(data) # Fallback raw JSON
+            
+    logger.info("🕵️‍♂️ [Audit] Lancement de l'audit expert pour les prospects qualifiés...")
+    
+    audit_count = 0
+    total_audits = len(prospects_qualifies_finaux)
+
     for p in prospects_qualifies_finaux:
-        log_wrapper = lambda msg, lvl="INFO": getattr(logger, lvl.lower(), logger.info)(msg)
-        enriched = enrich_prospect_with_icebreaker(p, DEEPINFRA_API_KEY, log_wrapper, cache_ib)
-        final_enriched.append(enriched)
+        audit_count += 1
+        logger.info(f"👉 [Audit {audit_count}/{total_audits}] Traitement de {p.get('entreprise_nom', 'Inconnu')}...")
         
-        web = enriched.get("website")
-        if web and enriched.get("icebreaker_a"):
-             cache_ib[web] = {
-                 "A": enriched["icebreaker_a"], "B": enriched["icebreaker_b"], 
-                 "C": enriched["icebreaker_c"], "D": enriched.get("icebreaker_d", "")
-             }
-    
-    sauvegarder_cache_icebreaker(cache_ib)
-    
-    # Checkpoint FINAL
+        try:
+            # Appel Synchrone (car run_audit gère sa propre loop interne sync ou ses appels)
+            # Note: run_audit est sync, mais utilise asyncio.run pour validator. C'est OK ici car nous ne sommes pas dans une loop async.
+            res_audit = audit_service.run_audit(p)
+            
+            # Enrichissement du prospect avec les résultats de l'audit
+            p["audit_decision"] = res_audit.get("decision", "PENDING")
+            p["audit_score"] = res_audit.get("score_priority", 0)
+            # Extraction correcte du résumé complet (FORMAT TEXTE pour CSV)
+            raw_summary = res_audit.get("step_synthesis", {}).get("parsed", {}).get("data", {})
+            p["audit_summary"] = format_report_to_text(raw_summary, "summary")
+            
+            p["audit_alerts_count"] = len(res_audit.get("step_scraping", {}).get("security_alerts", []))
+            
+            # Extraction des rapports détaillés (FORMAT TEXTE pour CSV)
+            raw_tech = res_audit.get("step_tech", {}).get("parsed", {}).get("data", {})
+            p["audit_tech_report"] = format_report_to_text(raw_tech, "tech")
+
+            raw_ui = res_audit.get("step_ui_code", {}).get("parsed", {}).get("data", {})
+            p["audit_ui_report"] = format_report_to_text(raw_ui, "ui")
+
+            raw_vision = res_audit.get("step_vision", {}).get("parsed", {}).get("data", {})
+            p["audit_vision_report"] = format_report_to_text(raw_vision, "vision")
+            
+            # On stocke aussi l'ID de l'audit en DB si besoin de lien direct
+            if "_id" in res_audit:
+                 p["audit_db_id"] = str(res_audit["_id"])
+
+        except Exception as e:
+            logger.error(f"❌ Erreur critique Audit pour {p.get('entreprise_nom')}: {e}", exc_info=True)
+            p["audit_decision"] = "ERROR"
+            p["audit_summary"] = f"Echec audit: {str(e)}"
+
+        final_enriched.append(p)
+
+    # Checkpoint FINAL (après audit)
     _checkpoint_manager.save_checkpoint(
         prospects=final_enriched,
-        segment_name="post_icebreaker_enrichment",
-        progress_info={"phase": "post_icebreaker_enrichment", "count": len(final_enriched)},
+        segment_name="post_audit_enrichment",
+        progress_info={"phase": "post_audit_enrichment", "count": len(final_enriched)},
         campaign_id=campaign_id
     )
     
@@ -907,7 +938,18 @@ def collect_pme_prospects(target_count: Optional[int] = None) -> List[UnifiedPro
             icebreaker_a=p.get("icebreaker_a", ""),
             icebreaker_b=p.get("icebreaker_b", ""),
             icebreaker_c=p.get("icebreaker_c", ""),
-            icebreaker_d=p.get("automation_list", p.get("icebreaker_d", ""))
+            icebreaker_d=p.get("automation_list", p.get("icebreaker_d", "")),
+            
+            # Mapping Audit Integration
+            audit_decision=p.get("audit_decision", ""),
+            audit_score=float(p.get("audit_score", 0.0)),
+            audit_summary=p.get("audit_summary", ""),
+            audit_alerts=int(p.get("audit_alerts_count", 0)),
+            
+            # Detailed Reports
+            audit_tech_report=p.get("audit_tech_report", ""),
+            audit_ui_report=p.get("audit_ui_report", ""),
+            audit_vision_report=p.get("audit_vision_report", "")
         ))
 
 
