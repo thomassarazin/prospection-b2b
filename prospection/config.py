@@ -29,25 +29,9 @@ TARGETS_CONFIG = {
 # CLÉS API
 # =============================================================================
 
-# Apollo (optionnel)
-APOLLO_API_KEY = os.getenv("APOLLO_API_KEY", "***REMOVED***")
 
-# Apify (Instagram/LinkedIn)
-APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN", "***REMOVED***")
-APIFY_INSTAGRAM_HASHTAG_ACTOR = os.getenv("APIFY_INSTAGRAM_HASHTAG_ACTOR", "apify/instagram-hashtag-scraper")
-APIFY_INSTAGRAM_PROFILE_ACTOR = os.getenv("APIFY_INSTAGRAM_PROFILE_ACTOR", "apify/instagram-profile-scraper")
-APIFY_LINKEDIN_ACTOR_ID = os.getenv("APIFY_LINKEDIN_ACTOR_ID", "")
 
-# Configuration du cache persistant Apify
-APIFY_CACHE_ENABLED = os.getenv("APIFY_CACHE_ENABLED", "true").lower() == "true"
-APIFY_CACHE_FILE = os.getenv("APIFY_CACHE_FILE", "cache_usernames_apify.json")
-APIFY_CACHE_MAX_AGE_DAYS = int(os.getenv("APIFY_CACHE_MAX_AGE_DAYS", "90"))
 
-# Pappers (données SIRENE)
-PAPPERS_API_KEY = os.getenv("PAPPERS_API_KEY", "***REMOVED***")
-
-# Dropcontact (enrichissement email/LinkedIn)
-DROPCONTACT_API_KEY = os.getenv("DROPCONTACT_API_KEY", "***REMOVED***")
 DROPCONTACT_BATCH_SIZE_DEFAULT = int(os.getenv("DROPCONTACT_BATCH_SIZE", "10"))
 DROPCONTACT_BATCH_SIZE_MIN = int(os.getenv("DROPCONTACT_BATCH_SIZE_MIN", "3"))
 DROPCONTACT_BATCH_SIZE_MAX = int(os.getenv("DROPCONTACT_BATCH_SIZE_MAX", "100"))
