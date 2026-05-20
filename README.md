@@ -26,7 +26,7 @@ Ce pipeline ne se contente pas de trouver des entreprises. Il effectue un **audi
 
 ---
 
-## 🚀 Technologie de Pointe
+## 🚀 Technologie utilisée
 
 ### 🕵️‍♂️ Smart Discovery & Multi-Pages
 Le système ne s'arrête pas à la page d'accueil. Il explore intelligemment les pages `/contact` ou `/login` pour agréger un maximum de scripts JavaScript, augmentant ainsi drastiquement la portée de l'audit de sécurité.
