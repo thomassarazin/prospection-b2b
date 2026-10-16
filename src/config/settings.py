@@ -6,12 +6,9 @@ load_dotenv()
 # =============================================================================
 # API KEYS & EXTERNAL SERVICES Configuration
 # =============================================================================
-APOLLO_API_KEY = os.getenv("APOLLO_API_KEY")
 
 # Services IA & Scraping
 DEEPINFRA_API_KEY = os.getenv("DEEPINFRA_API_KEY")
-DEEPINFRA_MODEL = os.getenv("DEEPINFRA_MODEL", "Qwen/Qwen3-235B-A22B-Instruct-2507")
-DEEPINFRA_URL = os.getenv("DEEPINFRA_URL", "https://api.deepinfra.com/v1/openai/chat/completions")
 
 # Services Enrichissement
 PAPPERS_API_KEY = os.getenv("PAPPERS_API_KEY")

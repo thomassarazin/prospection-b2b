@@ -1,66 +1,25 @@
-# Environment variables (SECURITY)
+# Secrets
 .env
+.env.*
+!.env.example
 
-# Python & System
+# Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.DS_Store
 .venv/
 venv/
-env/
 
-# IDE
+# OS / IDE
+.DS_Store
 .vscode/
 .idea/
 
-# Logs & Debug
+# Runtime output (prospect data, caches, logs, captures)
 *.log
-pipeline_debug.log
-terminal_output.log
-
-# Data & Cache (Runtime files)
 *.csv
 *.json
-# !reservoir_pme.csv <- Commented out to ignore it
-# !checkpoint_metadata.json
-# !strategies_testees_cache.json
-# (On ignore les caches mais on peut vouloir garder certains fichiers de config s'ils existent)
-.crawl4ai_cache/
 checkpoints/
-
-# Temporary/Test Files & Debris
-test_*
-debug_*.py
-debug_screenshot_*.jpg
-debug_*.jpg
-*_debug.py
-*.ipynb
-*.html
-portfolio_*
-crawl4ai*/
-*.zip
-*.yaml
-app.py
-*.bak
-*.md
-!README.md
-!task.md
-!implementation_plan.md
-!walkthrough.md
-*.txt
-!requirements.txt
-*.svg
-test_full_page.png
-test_full_page.pdf
-test_screenshot.png
+.crawl4ai_cache/
 *.png
-*.pdf
 *.jpg
-
-# Legacy & Backup
-icebreaker_legacy.py
-Mon_outil_de_travail.py
-Mon_outil_de_travail.py.bak
-fix_csv.py
+*.pdf

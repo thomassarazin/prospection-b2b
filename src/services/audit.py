@@ -7,7 +7,7 @@ import concurrent.futures
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-from src.config.settings import DEEPINFRA_API_KEY, DEEPINFRA_URL
+from src.config.settings import DEEPINFRA_API_KEY
 from src.config.pricing import calculate_cost
 from src.config.prompts import AUDIT_PROMPTS
 from src.core.retry import http_request_with_retry
@@ -20,7 +20,6 @@ class AuditService:
     def __init__(self, db_service: DatabaseService):
         self.db = db_service
         self.api_key = DEEPINFRA_API_KEY
-        self.base_url = DEEPINFRA_URL
         # Client OpenAI pour DeepInfra (Plus fiable que requests brut pour le streaming)
         self.openai_client = OpenAI(
             api_key=DEEPINFRA_API_KEY,

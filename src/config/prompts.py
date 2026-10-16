@@ -144,8 +144,8 @@ PART 2: STRICT JSON (Content MUST be in FRENCH 🇫🇷)
         "content": """
 CONTEXTE :
 Tu viens de recevoir les résultats de 3 audits d'un site web prospect.
-Ta mission : en faire un BRIEF TECHNIQUE PÉDAGOGIQUE pour Thomas (le commercial).
-Thomas n'est PAS technique. Il a besoin de COMPRENDRE les problèmes avant son appel client.
+Ta mission : en faire un BRIEF TECHNIQUE PÉDAGOGIQUE pour le commercial.
+Le commercial n'est PAS technique. Il a besoin de COMPRENDRE les problèmes avant son appel client.
 
 LES 3 RAPPORTS D'AUDIT :
 [SÉCURITÉ] : {audit_tech_cot}
@@ -153,7 +153,7 @@ LES 3 RAPPORTS D'AUDIT :
 [DESIGN/VISION] : {audit_vision_cot}
 
 TA MISSION :
-Extraire les 3 PIRES problèmes et les expliquer comme si Thomas était un pote.
+Extraire les 3 PIRES problèmes et les expliquer comme si le commercial était un pote.
 Pas de jargon sans explication. Pas de blabla marketing. Du CONCRET.
 
 Format attendu :
@@ -173,7 +173,7 @@ PARTIE 2 : JSON STRICT (Tout en FRANÇAIS 🇫🇷)
   "probleme_1": {{
     "titre": "Titre court du problème",
     "fact_tech": "Le fait technique précis (ex: 'WPBakery 5.5.2 est vulnérable au CVE-2019-12727').",
-    "minute_culture": "TA SECTION PÉDAGOGIQUE pour Thomas. Explique le CONCEPT technique général derrière ce problème. (Ex: 'C'est quoi une injection de code ? C'est quand un site fait confiance à ce que l'utilisateur tape. Ici, le shortcode est exécuté comme du code système...'). Fais-toi plaisir, apprends-lui un truc !",
+    "minute_culture": "TA SECTION PÉDAGOGIQUE pour le commercial. Explique le CONCEPT technique général derrière ce problème. (Ex: 'C'est quoi une injection de code ? C'est quand un site fait confiance à ce que l'utilisateur tape. Ici, le shortcode est exécuté comme du code système...'). Fais-toi plaisir, apprends-lui un truc !",
     "impact_biz": "Conséquence business concrète (Vol de données, ralentissement, baisse SEO...).",
     "script_tel": "La phrase simple pour le client."
   }},

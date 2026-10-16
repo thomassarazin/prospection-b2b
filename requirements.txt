@@ -3,3 +3,9 @@ python-dotenv>=1.2.1
 pandas>=2.3.3
 crawl4ai>=0.7.8
 openpyxl>=3.1.5  # Pour le support Excel moderne
+openai
+pymongo
+aiohttp
+beautifulsoup4
+pdf2image
+Pillow
