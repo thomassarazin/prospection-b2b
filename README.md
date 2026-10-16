@@ -1,78 +1,94 @@
-# 🎯 Advanced B2B Audit & Prospecting Platform
+# prospection-b2b
 
-> **L'ultime plateforme multi-agents** pour la prospection B2B de précision et l'audit technique automatisé (Sécurité, UX, Vision).
+Pipeline de prospection B2B en ligne de commande. Il recherche des dirigeants
+d'entreprises (via Pappers), enrichit leurs coordonnées (Dropcontact), valide
+les emails (MillionVerifier), puis réalise un audit technique automatisé du site
+web de chaque prospect (sécurité, UX/code, visuel) à l'aide de modèles de
+langage (DeepInfra). La sortie est un fichier CSV de prospects qualifiés.
 
-[![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)](https://www.python.org/downloads/)
-[![DeepInfra](https://img.shields.io/badge/AI-DeepInfra-purple.svg)](https://deepinfra.com/)
-[![Crawl4AI](https://img.shields.io/badge/Scraping-Crawl4AI--v2-green.svg)](https://crawl4ai.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+Pour le détail du fonctionnement, voir [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
----
+## Prérequis
 
-## 🔥 Le Concept : L'Audit comme cheval de Troie
+- Python 3.13+
+- Un navigateur Chromium pour Crawl4AI (installé via Playwright)
+- Poppler (conversion des captures PDF en image, utilisé par `pdf2image`)
+  - macOS : `brew install poppler`
+  - Debian/Ubuntu : `apt-get install poppler-utils`
+- Clés API : Pappers, Dropcontact, MillionVerifier, DeepInfra
+- MongoDB (optionnel ; le pipeline fonctionne sans, la persistance est alors
+  désactivée)
 
-Ce pipeline ne se contente pas de trouver des entreprises. Il effectue un **audit technique complet** pour transformer chaque prise de contact en une démonstration d'expertise. Plus besoin de "icebreakers" génériques : vous contactez le prospect avec des failles réelles et des preuves visuelles.
+## Installation
 
-### 1. 🏢 Pipeline de Prospection PME
-- 📊 **Segmentation Précise** : Ciblage par code NAF et localisation via Pappers.
-- 📧 **Enrichissement Cascade** : Détection d'emails pro (Dropcontact) et découverte de sites web.
-- 📑 **Rapports Humains** : Conversion automatique des analyses IA complexes en blocs de texte lisibles pour vos commerciaux (CSV direct).
-
-### 2. 🔍 Audit IA Multi-Experts
-- 🛡️ **Expert Sécurité** : Scan approfondi du code HTML et des scripts pour détecter les fuites de versions, les clés API exposées et les failles de headers.
-- 🎨 **Expert UX/Code** : Analyse critique de l'accessibilité, de l'hygiène du code et du responsive design.
-- 👁️ **Expert Vision (Full-Page)** : Analyse esthétique basée sur une capture complète de la page (du header au footer), évaluant la hiérarchie visuelle et l'impact des CTAs.
-- 🧠 **La Synthèse (Mentor)** : Rassemble les points critiques, définit un score de priorité client et génère un **script d'appel téléphonique** ultra-personnalisé.
-
----
-
-## 🚀 Technologie utilisée
-
-### 🕵️‍♂️ Smart Discovery & Multi-Pages
-Le système ne s'arrête pas à la page d'accueil. Il explore intelligemment les pages `/contact` ou `/login` pour agréger un maximum de scripts JavaScript, augmentant ainsi drastiquement la portée de l'audit de sécurité.
-
-### 🔑 KeyValidator Hybride
-Un moteur de détection unique qui combine :
-- **Scan de scripts externes** (JS Hunter).
-- **Scan d'attributs HTML** et de variables inline.
-- **Validation Active** : Chaque clé trouvée est testée en temps réel sur les APIs de 45+ services (Stripe, AWS, Google Maps...) pour confirmer si elle est "exploitable" ou non.
-
-### 📸 Vision Vision 1920px
-Capture HD via moteur Chromium convertie en JPEG optimisé. L'IA Vision (Qwen-VL) dispose d'une vue d'acteur de l'ensemble du site web, permettant un diagnostic visuel sans angle mort.
-
----
-
-## 🛠️ Installation
-
-### Prérequis
-- **Poppler** (indispensable pour la conversion des captures full-page) :
-  ```bash
-  brew install poppler  # macOS
-  ```
-
-### Setup
 ```bash
-git clone https://github.com/toot7b/Projet-Freelance.git
-cd Projet-Freelance
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-playwright install
-cp .env.example .env # Remplir vos clés API
+playwright install chromium
+
+cp .env.example .env   # puis renseigner les clés
 ```
 
----
+Renseignez au minimum dans `.env` :
 
-## 💻 Usage
+```
+PAPPERS_API_KEY=
+DROPCONTACT_API_KEY=
+MILLION_VERIFIER_API_KEY=
+DEEPINFRA_API_KEY=
+```
 
-### � Lancer la prospection massive
+La liste complète des variables (dont les paramètres optionnels) est documentée
+dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#configuration--variables-denvironnement).
+
+## Usage
+
 ```bash
 python main.py --limit 40 --mode code_naf
 ```
 
-### 🔍 Lancer un audit unitaire (Démo)
-```bash
-python tests/test_full_audit.py www.example.com
-```
+Arguments de `main.py` :
 
----
+| Argument | Valeurs | Défaut | Rôle |
+| --- | --- | --- | --- |
+| `--limit` | entier | `TARGET_TOTAL` (settings) | Nombre de prospects visés |
+| `--mode` | `code_naf`, `objet_social` | `code_naf` | Méthode de ciblage Pappers |
+| `--debug` | drapeau | désactivé | Active les logs niveau DEBUG |
 
-**Propulsion commerciale par l'intelligence technique. 🚀**
+Le résultat est écrit dans `prospects_final_<timestamp>.csv` dans le répertoire
+courant. Les codes NAF et départements ciblés se configurent dans
+`src/config/settings.py`.
+
+## Avertissement — usage responsable
+
+Cet outil collecte et traite des données relatives à des personnes (dirigeants
+d'entreprises) et effectue des tests techniques sur des sites web tiers. Son
+usage engage votre responsabilité.
+
+- **RGPD / prospection B2B** : la collecte et l'enrichissement de données de
+  contact (noms, emails professionnels, profils LinkedIn) doivent respecter le
+  RGPD et les règles de la CNIL sur la prospection B2B (base légale, information
+  des personnes, droit d'opposition, minimisation et durée de conservation des
+  données). Vous êtes responsable de traitement pour les données générées.
+- **CGU des services tiers** : l'utilisation de Pappers, Dropcontact,
+  MillionVerifier, DeepInfra, ainsi que le scraping via Crawl4AI et les requêtes
+  vers DuckDuckGo, est soumise aux conditions d'utilisation de chaque service.
+  Respectez leurs quotas, leurs limites de débit et leurs règles de scraping.
+- **Audit de sécurité — périmètre** : le module `src/services/audit.py`, via
+  `src/services/scraping.py` et `src/services/validator.py`, récupère le HTML et
+  les scripts d'un site, puis `KeyValidator` détecte d'éventuelles clés API
+  exposées et **envoie des requêtes de test vers les APIs tierces
+  correspondantes** (Stripe, Google Maps, GitHub, etc.) pour vérifier si ces
+  clés sont actives. Il ne s'agit pas d'un scan intrusif du serveur cible, mais
+  l'émission de requêtes avec des secrets trouvés constitue un test actif. **Ne
+  lancez l'audit que sur des sites que vous possédez ou pour lesquels vous avez
+  l'autorisation explicite du propriétaire.** Tester des clés trouvées sur des
+  sites tiers sans consentement peut être illégal selon les juridictions.
+
+Cet outil est fourni à titre d'exemple ; utilisez-le de manière éthique et
+conforme à la loi.
+
+## Licence
+
+[MIT](LICENSE)
